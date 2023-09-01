@@ -9,6 +9,7 @@
 #include <vector>
 #include <cstring>
 #include <cstdlib> // EXIT_SUCCESS & EXIT_FAILURE
+#include <optional>
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
@@ -35,6 +36,22 @@ VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMes
 	}
 }
 
+void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
+	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+	if (func != nullptr) {
+		func(instance, debugMessenger, pAllocator);
+	}
+}
+
+struct QueueFamilyIndices {
+	std::optional<uint32_t> graphicsFamily;
+
+	bool isComplete() {
+		return graphicsFamily.has_value();
+	}
+};
+
+
 class LifecellsTrianges {
 public:
 	void run() {
@@ -51,6 +68,7 @@ private:
 	VkInstance instance;
 
 	VkDebugUtilsMessengerEXT debugMessenger;
+	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 
 
 	void initWindow()
@@ -73,12 +91,22 @@ private:
 	void initVulkan() {
 		// initalize vulkan lib by creating an instance
 		createInstance();
+		setupDebugMessenger();
+		pickPhysicalDevice();
+		createLogicalDevice();
+	}
+
+	void createLogicalDevice()
+	{
+		QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+		VkDeviceQueueCreateInfo queueCreateInfo{};
+		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();
+		queueCreateInfo.queueCount = 1;
 	}
 
 	// find a graphics card
 	void pickPhysicalDevice() {
-		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-
 		uint32_t deviceCount = 0;
 		vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
 
@@ -102,10 +130,35 @@ private:
 	}
 
 	bool isDeviceSuitable(VkPhysicalDevice device) {
-		return true;
+		QueueFamilyIndices indices = findQueueFamilies(device);
+
+		return indices.isComplete();
 	}
 
+	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
+		QueueFamilyIndices indices;
 
+		uint32_t queueFamilyCount = 0;
+		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+
+		std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
+		int i = 0;
+		for (const auto& queueFamily : queueFamilies) {
+			if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+				indices.graphicsFamily = i;
+			}
+
+			if (indices.isComplete()) {
+				break;
+			}
+
+			i++;
+		}
+
+		return indices;
+	}
 
 	// debug messenger callback
 	void setupDebugMessenger() {
