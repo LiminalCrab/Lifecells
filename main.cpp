@@ -103,6 +103,13 @@ private:
 		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 		queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();
 		queueCreateInfo.queueCount = 1;
+
+		/* Vulkan lets you assign priorities to queues to influence the scheduling of 
+			command buffer execution using floating point numbers between 0.0 and 1.0. 
+			This is required even if there is only a single queue */
+
+		float queuePriority = 1.0f;
+		queueCreateInfo.pQueuePriorities = &queuePriority;
 	}
 
 	// find a graphics card
